@@ -17,7 +17,7 @@ Geänderte Dateien: `index.html`, `migration-hub-v1.sql`, neu `tests/e2e/smoke-r
 
 | Baustein | Umsetzung |
 |---|---|
-| DOMPurify | cdnjs 3.0.9 gepinnt + jsdelivr-Fallback + Legacy-Sanitizer im Code (Skill `dompurify-cdn`) |
+| DOMPurify | cdnjs 3.4.11 gepinnt + jsdelivr-Fallback + Legacy-Sanitizer im Code (Skill `dompurify-cdn`) — ursprünglich 3.0.9, siehe Nachtrag unten |
 | **Zwei-Stufen-Falle gelöst** | Paste-Simplifier **ist wörtlich dieselbe Funktion** wie der Render-Sanitizer (`simplifyPastedHtml = sanitizeHtml`) → Whitelist-Drift/silent data loss **per Konstruktion unmöglich** (Connect-Kernlektion) |
 | Helfer | `safeColorVal`, `filterSafeStyle`, `isSafeImageSrc` 1:1 aus Skill `wysiwyg-paste-farben-bilder`; nur Farb-Styles, Bilder nur `http(s)` + `data:image/*` |
 | Farb-Toolbar | `styleWithCSS=true` vor `foreColor` (keine `<font>`-Falle); F/K/U + 5 Farben + Formatierung-entfernen; `aria-label`s, 44px-Targets |
@@ -58,6 +58,32 @@ Geänderte Dateien: `index.html`, `migration-hub-v1.sql`, neu `tests/e2e/smoke-r
 ## 5. Nächster Sprint (Opus) — S3 Makerspace + ein Code für alles
 Laut Sprint-Plan: `ms_*`-Tabellen in die Schüler-DB, Migration A1/A2 dort einspielen (CHECK→ACTION→UNDO), A3–A6 (RLS default-DENY, Buchungs-RPCs aufs `hub__check_code`-Muster, Anti-Enumeration, `SET search_path` + `REVOKE FROM PUBLIC`), Lehrer-Buchungsaufsicht via `is_app_user()`, Kachel scharf schalten. Skills: `supabase-rls-haertung`, `dsgvo-rls-pii-lockdown`, `sichere-massen-sql-migration`, `krs-projekt-playbook`.
 **Achtung Zeitanker:** DB-Migrationen erst **nach dem 23.07.** — vorher kann Opus aber Migrations-SQL + Review vorbereiten.
+
+---
+
+## Nachtrag (nach erstem Push) — Gate-Fund: DOMPurify 3.0.9 nicht idempotent
+
+Der erste Push (`e3f6efb`) ist im Test-&-Deploy-Gate **echt** rot gelaufen — kein Flake:
+`smoke-richtext.spec.ts` Test „Zwei-Stufen-Regel: Sanitizer ist idempotent" schlug bei
+`<img src="data:image/jpeg;base64,...">` fehl.
+
+**Root Cause (per node+jsdom+dompurify reproduziert, sechs Versionen durchprobiert):**
+DOMPurify 3.0.9 serialisiert die Attribute eines `<img>`-Tags im ersten und zweiten
+Sanitize-Durchlauf in **unterschiedlicher Reihenfolge** (`alt,src,...` vs. `src,alt,...`) —
+inhaltlich identisch, aber der String-Vergleich in unserem Idempotenz-Test schlägt an.
+Kein Sicherheitsproblem (Whitelist/Filterung unverändert korrekt), aber ein echter
+Verstoß gegen die „Stufe 1 = Stufe 2"-Garantie, auf der die ganze Architektur beruht.
+
+Bug reproduzierbar in DOMPurify 3.0.9 / 3.0.11 / 3.1.0 / 3.1.6 / 3.2.4 — behoben ab
+**3.3.0** (getestet bis 3.4.11, beide CDNs cdnjs+jsdelivr liefern 3.4.11 mit HTTP 200).
+
+**Fix:** Pin in `index.html` von `dompurify/3.0.9` auf `dompurify/3.4.11` angehoben
+(beide `<script>`-Tags, cdnjs + jsdelivr-Fallback). Gegen alle 18 Assertions aus
+`smoke-richtext.spec.ts` (XSS-Vektoren, Farb-/Bild-Erhalt, Idempotenz aller 3 Proben)
+lokal mit echtem DOMPurify 3.4.11 + jsdom nachgestellt — alle grün, keine Regression.
+
+**Status:** Fix liegt im Arbeitsverzeichnis, **noch nicht committet/gepusht** —
+das übernimmst du (siehe Schritt unten), damit das Gate erneut läuft.
 
 ---
 
