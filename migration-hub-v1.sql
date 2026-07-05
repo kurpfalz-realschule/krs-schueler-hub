@@ -48,7 +48,9 @@ CREATE TABLE IF NOT EXISTS hub_team_posts (
   autor_typ TEXT NOT NULL CHECK (autor_typ IN ('lehrer','schueler')),
   autor_name TEXT NOT NULL,           -- Anzeigename zum Zeitpunkt des Posts
   autor_code TEXT,                    -- nur bei autor_typ='schueler'
-  inhalt TEXT NOT NULL CHECK (char_length(inhalt) BETWEEN 1 AND 2000),
+  -- Rich-Text (S1): sichtbarer Text wird clientseitig auf 2000 Zeichen begrenzt,
+  -- hier nur die serverseitige Notbremse fürs Gesamt-HTML (inkl. eingebetteter Bilder)
+  inhalt TEXT NOT NULL CHECK (char_length(inhalt) BETWEEN 1 AND 200000),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_hub_team_posts_team
@@ -59,7 +61,7 @@ CREATE TABLE IF NOT EXISTS hub_nachrichten (
   schueler_code TEXT NOT NULL REFERENCES schueler(code) ON DELETE CASCADE,
   lehrer_kuerzel TEXT NOT NULL,
   betreff TEXT NOT NULL CHECK (char_length(betreff) BETWEEN 1 AND 150),
-  inhalt TEXT NOT NULL CHECK (char_length(inhalt) BETWEEN 1 AND 2000),
+  inhalt TEXT NOT NULL CHECK (char_length(inhalt) BETWEEN 1 AND 200000),  -- Rich-Text (S1), s. o.
   antwort TEXT,                       -- von Lehrkraft (Phase 2: Lehrer-Panel)
   beantwortet_am TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -264,7 +266,8 @@ BEGIN
   END;
 
   v_inhalt := TRIM(COALESCE(p_inhalt, ''));
-  IF char_length(v_inhalt) < 1 OR char_length(v_inhalt) > 2000 THEN
+  -- Rich-Text (S1): Notbremse fürs Gesamt-HTML; sichtbare Textlänge prüft der Client
+  IF char_length(v_inhalt) < 1 OR char_length(v_inhalt) > 200000 THEN
     RETURN jsonb_build_object('success', false, 'error', 'inhalt_laenge');
   END IF;
 
@@ -308,7 +311,7 @@ BEGIN
   v_betreff := TRIM(COALESCE(p_betreff, ''));
   v_inhalt  := TRIM(COALESCE(p_inhalt, ''));
   IF char_length(v_betreff) < 1 OR char_length(v_betreff) > 150
-     OR char_length(v_inhalt) < 1 OR char_length(v_inhalt) > 2000 THEN
+     OR char_length(v_inhalt) < 1 OR char_length(v_inhalt) > 200000 THEN  -- Rich-Text (S1)
     RETURN jsonb_build_object('success', false, 'error', 'inhalt_laenge');
   END IF;
 
@@ -397,6 +400,24 @@ END $$;
 -- sonst wäre die Funktion trotz "kein GRANT" von anon aufrufbar
 -- (Review-Finding 🔴1). Nur service_role/SQL-Editor darf sie nutzen.
 REVOKE ALL ON FUNCTION hub_teams_aus_zuteilungen() FROM PUBLIC, anon, authenticated;
+
+-- ============================================================
+-- 5b. RICH-TEXT (S1, 05.07.2026): Inhalt-Limits auf 200000 anheben
+-- Nur relevant, falls die Migration schon VOR dem Rich-Text-Update
+-- mit den alten 2000er-CHECKs eingespielt wurde. Idempotent:
+-- DROP IF EXISTS + ADD läuft beliebig oft. Nicht-destruktiv (Limit
+-- wird nur ANGEHOBEN, kein Datenverlust möglich).
+-- CHECK:  SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint
+--         WHERE conname IN ('hub_team_posts_inhalt_check','hub_nachrichten_inhalt_check');
+-- ============================================================
+ALTER TABLE hub_team_posts DROP CONSTRAINT IF EXISTS hub_team_posts_inhalt_check;
+ALTER TABLE hub_team_posts ADD CONSTRAINT hub_team_posts_inhalt_check
+  CHECK (char_length(inhalt) BETWEEN 1 AND 200000);
+ALTER TABLE hub_nachrichten DROP CONSTRAINT IF EXISTS hub_nachrichten_inhalt_check;
+ALTER TABLE hub_nachrichten ADD CONSTRAINT hub_nachrichten_inhalt_check
+  CHECK (char_length(inhalt) BETWEEN 1 AND 200000);
+-- UNDO (nur falls nötig, würde bei vorhandenen langen Inhalten scheitern):
+--   ALTER TABLE ... DROP CONSTRAINT ...; ADD CONSTRAINT ... CHECK (char_length(inhalt) BETWEEN 1 AND 2000);
 
 -- ============================================================
 -- 6. LÖSCHKONZEPT (Schuljahresende — manuell ausführen)

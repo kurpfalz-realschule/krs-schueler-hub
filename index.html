@@ -112,11 +112,29 @@ h2.page{font-size:19px;color:var(--krs-blau);margin:6px 0 14px}
 .post .a .lt{color:var(--krs-orange)}
 .post .txt{font-size:14.5px;line-height:1.45;white-space:pre-wrap;word-wrap:break-word}
 .post .ts{font-size:10.5px;color:var(--text-dim);margin-top:4px;text-align:right}
-.composer{display:flex;gap:8px;position:sticky;bottom:10px}
+.composer{display:flex;gap:8px;position:sticky;bottom:10px;align-items:flex-end}
 .composer textarea{flex:1;border:1.5px solid var(--border);border-radius:12px;padding:10px 12px;font-size:15px;resize:none;background:var(--card);outline:none;min-height:44px;max-height:120px}
 .composer textarea:focus{border-color:var(--krs-blau)}
 .composer button{background:var(--krs-orange);color:#fff;border-radius:12px;padding:0 18px;font-weight:700;flex:none}
 .composer button:disabled{opacity:.5}
+
+/* ===== Rich-Text-Editor ===== */
+.rt-wrap{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0}
+.rt-toolbar{display:flex;gap:4px;flex-wrap:wrap}
+.rt-toolbar button{min-height:44px;min-width:44px;border:1px solid var(--border);border-radius:10px;background:var(--card);font-size:15px;padding:0 6px;color:var(--text);display:inline-flex;align-items:center;justify-content:center}
+.rt-toolbar button:active{background:var(--bg-subtle)}
+.rt-toolbar .sw{width:18px;height:18px;border-radius:50%;display:inline-block;border:1px solid var(--border)}
+.rich-editor{border:1.5px solid var(--border);border-radius:12px;padding:10px 12px;font-size:15px;background:var(--card);outline:none;min-height:44px;max-height:180px;overflow-y:auto;line-height:1.45;word-wrap:break-word}
+.rich-editor:focus{border-color:var(--krs-blau)}
+.rich-editor:empty::before{content:attr(data-placeholder);color:var(--text-dim);pointer-events:none}
+.rich-editor.tall{min-height:110px;max-height:none}
+.rich-editor img,.txt.rich img{max-width:100%;height:auto;border-radius:8px;margin:6px 0;display:block}
+.txt.rich{white-space:normal}
+.txt.rich p{margin:0 0 6px}
+.txt.rich p:last-child{margin-bottom:0}
+.txt.rich ul,.txt.rich ol{padding-left:20px;margin:4px 0}
+.txt.rich blockquote{border-left:3px solid var(--border);padding-left:10px;color:var(--text-dim);margin:6px 0}
+.txt.rich pre,.txt.rich code{background:var(--bg-subtle);border-radius:6px;padding:2px 5px;font-size:13px}
 
 /* ===== Nachrichten ===== */
 .form label{display:block;font-size:13px;font-weight:700;color:var(--text-dim);margin:12px 0 5px}
@@ -157,6 +175,9 @@ h2.page{font-size:19px;color:var(--krs-blau);margin:6px 0 14px}
 <script src="krs-supabase-config.js"></script>
 <!-- Version gepinnt (Review-Finding 🟢14: kein ungepinntes @2) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+<!-- DOMPurify (gepinnt) + CDN-Fallback; wenn beide fehlen: Legacy-Sanitizer im App-Code -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
+<script>if(!window.DOMPurify){document.write('<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.9/dist/purify.min.js"><\/script>');}</script>
 <script>
 // =====================================================================
 // HubData — DataService (Dual-Mode: Demo + Produktiv)
@@ -195,7 +216,7 @@ h2.page{font-size:19px;color:var(--krs-blau);margin:6px 0 14px}
     ],
     posts: {
       t1: [
-        { id: 'p1', autor_typ: 'lehrer', autor_name: 'Frau Musterfrau', eigener: false, inhalt: 'Willkommen im Projekt Schulgarten! Denkt am Dienstag an Gartenhandschuhe und alte Kleidung.', created_at: plus(-2).toISOString() },
+        { id: 'p1', autor_typ: 'lehrer', autor_name: 'Frau Musterfrau', eigener: false, inhalt: '<p>Willkommen im Projekt Schulgarten! Denkt am <b>Dienstag</b> an <span style="color: #C0392B">Gartenhandschuhe</span> und alte Kleidung.</p>', created_at: plus(-2).toISOString() },
         { id: 'p2', autor_typ: 'schueler', autor_name: 'Leo K.', eigener: false, inhalt: 'Sollen wir auch Gießkannen mitbringen?', created_at: plus(-1).toISOString() }
       ],
       t2: [
@@ -374,6 +395,161 @@ const fmtZeit = (s) => new Date(s).toLocaleDateString('de-DE', { day: '2-digit',
 
 const TYP_LABEL = { klassenarbeit: 'Klassenarbeit', termin: 'Termin', event: 'Event', ferien: 'Ferien' };
 
+// =====================================================================
+// Rich-Text: Sanitizing (Skills: wysiwyg-paste-farben-bilder, dompurify-cdn)
+// KERN-LEKTION aus KRS Connect: Paste-Simplifier und Render-Sanitizer
+// MÜSSEN dieselbe Whitelist haben, sonst silent data loss. Hier gelöst,
+// indem beide Stufen wortwörtlich DIESELBE Funktion nutzen.
+// =====================================================================
+const LIMITS = { text: 2000, betreff: 150, html: 200000 };
+
+const DEFAULT_COLORS = ['black','#000','#000000','windowtext','inherit','initial','currentcolor','auto','rgb(0,0,0)','rgb(0, 0, 0)'];
+
+function safeColorVal(v) {
+  v = String(v || '').trim();
+  if (!v || /url|expression|javascript|[<>{}\\]/i.test(v)) return false;
+  if (/^#[0-9a-f]{3,8}$/i.test(v)) return true;
+  if (/^[a-z]+$/i.test(v)) return true;
+  if (/^(rgb|rgba|hsl|hsla)\(\s*[\d.,\s%]+\)$/i.test(v)) return true;
+  return false;
+}
+
+// style-Attribut auf sichere Whitelist reduzieren (nur Farbe/Hintergrund/Fett/Kursiv/Unterstrichen)
+function filterSafeStyle(node) {
+  if (!node || !node.hasAttribute || !node.hasAttribute('style')) return;
+  const style = node.getAttribute('style'), keep = [];
+  const grab = (re) => { const m = re.exec(style); return m ? m[1].trim() : null; };
+  const c = grab(/(?:^|;|\s)color\s*:\s*([^;]+)/i);
+  if (c && safeColorVal(c) && !DEFAULT_COLORS.includes(c.toLowerCase())) keep.push('color: ' + c);
+  const bg = grab(/(?:^|;|\s)background-color\s*:\s*([^;]+)/i);
+  if (bg && safeColorVal(bg) && !DEFAULT_COLORS.includes(bg.toLowerCase())) keep.push('background-color: ' + bg);
+  const fw = grab(/font-weight\s*:\s*([^;]+)/i);
+  if (fw && (/bold/i.test(fw) || parseInt(fw, 10) >= 600)) keep.push('font-weight: 700');
+  if (/font-style\s*:\s*italic/i.test(style)) keep.push('font-style: italic');
+  if (/text-decoration\s*:[^;]*underline/i.test(style)) keep.push('text-decoration: underline');
+  keep.length ? node.setAttribute('style', keep.join('; ')) : node.removeAttribute('style');
+}
+
+// Bild-Quellen: nur http(s) + data:image/* (kein javascript:, kein data:text/html)
+function isSafeImageSrc(src) {
+  src = String(src || '').trim();
+  return /^https?:\/\//i.test(src) || /^data:image\/(png|jpe?g|gif|webp|bmp|svg\+xml);/i.test(src);
+}
+
+const RT_TAGS = ['p','br','b','strong','i','em','u','s','a','ul','ol','li','h1','h2','h3','blockquote','pre','code','span','div','img'];
+const RT_ATTR = ['href','target','rel','style','src','alt','width','height'];
+
+// Legacy-Fallback falls DOMPurify-CDN nicht lädt (Skill dompurify-cdn) —
+// Formatierung bleibt weitgehend, data:-Bilder werden verworfen (bewusst strenger).
+function legacySanitize(htmlStr) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = String(htmlStr || '');
+  tmp.querySelectorAll('script,iframe,object,embed,form,input,button,style,link,svg,math,meta,base').forEach(el => el.remove());
+  tmp.querySelectorAll('*').forEach(el => {
+    for (const attr of [...el.attributes]) {
+      const n = attr.name.toLowerCase(), v = attr.value.trim().toLowerCase();
+      if (n.startsWith('on') || n === 'srcdoc') el.removeAttribute(attr.name);
+      else if (n === 'href' && !/^https?:/i.test(v)) el.removeAttribute(attr.name);
+      else if (n === 'src' && v.startsWith('data:')) el.removeAttribute(attr.name);
+      else if (!RT_ATTR.includes(n)) el.removeAttribute(attr.name);
+    }
+    if (!RT_TAGS.includes(el.tagName.toLowerCase())) el.replaceWith(...el.childNodes);
+  });
+  return tmp.innerHTML;
+}
+
+// DIE zentrale Sanitize-Funktion — für Paste (Stufe 1) UND Rendern (Stufe 2).
+function sanitizeHtml(htmlStr) {
+  if (!htmlStr) return '';
+  const tmp = document.createElement('div');
+  tmp.innerHTML = (window.DOMPurify && window.DOMPurify.sanitize)
+    ? window.DOMPurify.sanitize(String(htmlStr), { ALLOWED_TAGS: RT_TAGS, ALLOWED_ATTR: RT_ATTR, ADD_DATA_URI_TAGS: ['img'], ALLOW_DATA_ATTR: false })
+    : legacySanitize(htmlStr);
+  // DOM-Nachbearbeitung (robuster als DOMPurify-Hooks, siehe Skill):
+  tmp.querySelectorAll('[style]').forEach(filterSafeStyle);
+  tmp.querySelectorAll('img').forEach(img => {
+    if (!isSafeImageSrc(img.getAttribute('src') || '')) { img.remove(); return; }
+    img.removeAttribute('style');
+    img.setAttribute('loading', 'lazy');
+    img.setAttribute('referrerpolicy', 'no-referrer');
+  });
+  tmp.querySelectorAll('a').forEach(a => { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener noreferrer'); });
+  return tmp.innerHTML;
+}
+// Stufe 1 = Stufe 2 per Konstruktion (kein Whitelist-Drift möglich):
+const simplifyPastedHtml = sanitizeHtml;
+
+// Sichtbaren Text extrahieren (für Zeichen-Limit — Base64-Bilder zählen NICHT mit).
+// DOMParser ist inert: führt keine Skripte aus, lädt keine Bilder.
+function htmlToText(htmlStr) {
+  if (!htmlStr) return '';
+  const doc = new DOMParser().parseFromString(String(htmlStr), 'text/html');
+  doc.body.querySelectorAll('br,p,div,li,h1,h2,h3,blockquote,pre,tr').forEach(el => el.insertAdjacentText('beforeend', '\n'));
+  return (doc.body.textContent || '').replace(/ /g, ' ').replace(/\n{2,}/g, '\n').trim();
+}
+
+const escapeText = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const looksLikeHtml = (s) => /<[a-z][\s\S]*>/i.test(String(s || ''));
+
+// Test-Hooks (Playwright, hermetisch via page.evaluate)
+window.__sanitizeHtml = sanitizeHtml;
+window.__simplifyPastedHtml = simplifyPastedHtml;
+window.__htmlToText = htmlToText;
+window.__richLimits = LIMITS;
+
+// Gerenderter Inhalt: Rich-HTML sanitized, Alt-/Plaintext wie bisher (pre-wrap)
+function ContentView({ inhalt }) {
+  return looksLikeHtml(inhalt)
+    ? html`<div class="txt rich" dangerouslySetInnerHTML=${{ __html: sanitizeHtml(inhalt) }}></div>`
+    : html`<div class="txt">${inhalt}</div>`;
+}
+
+// =====================================================================
+// RichEditor — contentEditable mit Toolbar (Fett/Kursiv/Unterstrichen/Farben)
+// Stale-Closure-sicher: unkontrolliert, State wird bei jedem Input aktuell
+// gehalten; innerHTML wird nur beim Leeren (nach Senden) zurückgesetzt.
+// =====================================================================
+const TEXT_COLORS = [['KRS-Orange','#E87722'],['Rot','#C0392B'],['Grün','#1E8449'],['Blau','#2D6CDF'],['Standard','#22303c']];
+
+function RichEditor({ value, onChange, placeholder, testid, tall }) {
+  const ref = useRef(null);
+  useEffect(() => { if (ref.current && !value && ref.current.innerHTML) ref.current.innerHTML = ''; }, [value]);
+  const emit = () => { if (ref.current) onChange(ref.current.innerHTML); };
+  const exec = (cmd, val) => {
+    const el = ref.current; if (!el) return;
+    el.focus();
+    // styleWithCSS VOR foreColor, sonst <font>-Tag, das der Sanitizer wegwirft (Skill-Falle)
+    try { document.execCommand('styleWithCSS', false, true); } catch (e) {}
+    try { document.execCommand(cmd, false, val); } catch (e) {}
+    try { document.execCommand('styleWithCSS', false, false); } catch (e) {}
+    emit();
+  };
+  const onPaste = (e) => {
+    e.preventDefault();
+    const cd = e.clipboardData || window.clipboardData;
+    const htmlData = cd && cd.getData && cd.getData('text/html');
+    const ins = htmlData
+      ? simplifyPastedHtml(htmlData)
+      : escapeText(cd && cd.getData ? cd.getData('text/plain') : '').replace(/\r?\n/g, '<br>');
+    try { document.execCommand('insertHTML', false, ins); } catch (e2) {}
+    emit();
+  };
+  return html`
+    <div class="rt-wrap">
+      <div class="rt-toolbar" role="toolbar" aria-label="Formatierung">
+        <button type="button" aria-label="Fett" title="Fett" onClick=${() => exec('bold')}><b>F</b></button>
+        <button type="button" aria-label="Kursiv" title="Kursiv" onClick=${() => exec('italic')}><i>K</i></button>
+        <button type="button" aria-label="Unterstrichen" title="Unterstrichen" onClick=${() => exec('underline')}><u>U</u></button>
+        ${TEXT_COLORS.map(([name, col]) => html`
+          <button type="button" key=${col} aria-label="Textfarbe ${name}" title=${name}
+            onClick=${() => exec('foreColor', col)}><span class="sw" style="background:${col}"></span></button>`)}
+        <button type="button" aria-label="Formatierung entfernen" title="Formatierung entfernen" onClick=${() => exec('removeFormat')}>⌫</button>
+      </div>
+      <div class="rich-editor ${tall ? 'tall' : ''}" data-testid=${testid} contentEditable="true"
+        data-placeholder=${placeholder} onInput=${emit} onPaste=${onPaste} ref=${ref}></div>
+    </div>`;
+}
+
 function Toast({ toast }) {
   if (!toast) return null;
   return html`<div class="toast ${toast.typ || ''}">${toast.text}</div>`;
@@ -518,10 +694,13 @@ function TeamDetail({ code, team, toast }) {
   useEffect(() => { if (endRef.current) endRef.current.scrollIntoView({ block: 'end' }); }, [posts]);
 
   const send = async () => {
-    const t = text.trim();
-    if (!t || busy) return;
+    const raw = text;
+    const sichtbar = htmlToText(raw);
+    if (!sichtbar || busy) return;
+    if (sichtbar.length > LIMITS.text) { toast(`Der Text ist zu lang (max. ${LIMITS.text} Zeichen).`, 'err'); return; }
+    if (raw.length > LIMITS.html) { toast('Der Beitrag ist mit Bildern zu groß — bitte Bilder verkleinern oder weglassen.', 'err'); return; }
     setBusy(true);
-    const res = await D.postToTeam(code, team.id, t);
+    const res = await D.postToTeam(code, team.id, sanitizeHtml(raw));
     setBusy(false);
     if (res.success) { setText(''); load(); }
     else toast(errText(res.error), 'err');
@@ -535,16 +714,15 @@ function TeamDetail({ code, team, toast }) {
         ${posts.map(p => html`
           <div class="post ${p.eigener ? 'eigen' : ''} ${p.autor_typ === 'lehrer' ? 'lehrer' : ''}" key=${p.id}>
             <div class="a">${p.autor_name}${p.autor_typ === 'lehrer' && html` <span class="lt">· Lehrkraft</span>`}</div>
-            <div class="txt">${p.inhalt}</div>
+            <${ContentView} inhalt=${p.inhalt} />
             <div class="ts">${fmtZeit(p.created_at)}</div>
           </div>`)}
         <div ref=${endRef}></div>
       </div>
       ${T.teams_posting !== false ? html`
       <div class="composer">
-        <textarea data-testid="post-input" placeholder="Nachricht ans Team …" maxlength="2000"
-          value=${text} onInput=${(e) => setText(e.target.value)}></textarea>
-        <button data-testid="post-send" onClick=${send} disabled=${busy || !text.trim()}>Senden</button>
+        <${RichEditor} value=${text} onChange=${setText} placeholder="Nachricht ans Team …" testid="post-input" />
+        <button data-testid="post-send" onClick=${send} disabled=${busy || !htmlToText(text)}>Senden</button>
       </div>` : html`
       <div class="banner">✍️ Schreiben in Teams ist noch nicht freigeschaltet — deine Lehrkräfte posten hier Infos für dich.</div>`}`}`;
 }
@@ -570,8 +748,13 @@ function NachrichtenView({ code, toast }) {
     e.preventDefault();
     if (busy) return;
     if (!kuerzel) { toast('Bitte eine Lehrkraft auswählen.', 'err'); return; }
+    const sichtbar = htmlToText(inhalt);
+    if (!betreff.trim()) { toast('Bitte einen Betreff eingeben.', 'err'); return; }
+    if (!sichtbar) { toast('Bitte eine Nachricht schreiben.', 'err'); return; }
+    if (sichtbar.length > LIMITS.text) { toast(`Der Text ist zu lang (max. ${LIMITS.text} Zeichen).`, 'err'); return; }
+    if (inhalt.length > LIMITS.html) { toast('Die Nachricht ist mit Bildern zu groß — bitte Bilder verkleinern oder weglassen.', 'err'); return; }
     setBusy(true);
-    const res = await D.sendNachricht(code, kuerzel, betreff.trim(), inhalt.trim());
+    const res = await D.sendNachricht(code, kuerzel, betreff.trim(), sanitizeHtml(inhalt));
     setBusy(false);
     if (res.success) {
       toast('Nachricht gesendet! Die Antwort erscheint hier.', 'ok');
@@ -594,7 +777,7 @@ function NachrichtenView({ code, toast }) {
         <label>Betreff</label>
         <input data-testid="betreff-input" maxlength="150" required value=${betreff} onInput=${(e) => setBetreff(e.target.value)} placeholder="Worum geht es?" />
         <label>Deine Nachricht</label>
-        <textarea data-testid="inhalt-input" maxlength="2000" required value=${inhalt} onInput=${(e) => setInhalt(e.target.value)} placeholder="Schreib freundlich und konkret — wie in einer E-Mail."></textarea>
+        <${RichEditor} value=${inhalt} onChange=${setInhalt} tall=${true} placeholder="Schreib freundlich und konkret — wie in einer E-Mail." testid="inhalt-input" />
         <button class="primary-btn" data-testid="nachricht-senden" type="submit" disabled=${busy}>${busy ? 'Wird gesendet …' : 'Senden'}</button>
         <button type="button" style="margin:10px 0 0 12px;color:var(--text-dim)" onClick=${() => setZeigeForm(false)}>Abbrechen</button>
       </form>`}
@@ -604,11 +787,11 @@ function NachrichtenView({ code, toast }) {
         <div class="card msg-card" key=${n.id} data-testid="nachricht">
           <b class="betreff">${n.betreff}</b>
           <div class="meta">an ${n.lehrer} · ${fmtZeit(n.created_at)} ${!n.antwort && html`<span class="offen-tag">wartet auf Antwort</span>`}</div>
-          <div class="txt">${n.inhalt}</div>
+          <${ContentView} inhalt=${n.inhalt} />
           ${n.antwort && html`
             <div class="antwort">
               <div class="al">Antwort · ${fmtZeit(n.beantwortet_am)}</div>
-              <div class="txt">${n.antwort}</div>
+              <${ContentView} inhalt=${n.antwort} />
             </div>`}
         </div>`)}`;
 }
