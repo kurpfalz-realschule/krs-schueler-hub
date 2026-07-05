@@ -58,3 +58,15 @@ Zentraler Einstieg für alle ~455 Schüler:innen: Login mit dem **vorhandenen Pr
 > Lies `schueler-hub/UEBERGABE-schueler-hub-2026-07-05.md` und `schueler-hub/ARCHITEKTUR-SCHUELER-HUB.md` im Ordner „teams 2.0 update macbook pro". Der KRS Schüler-Hub v1 ist gebaut und reviewt (7/7 Tests grün), Migration noch nicht eingespielt. Weiter geht's mit: [Nachricht an Petra/DSB | Migration + Befüllung | Deploy krs-schueler-hub | Lehrer-Panel Phase 2].
 
 *Hinweis Testumgebung: In der Cowork-Sandbox laufen Playwright-Tests nur aus einem lokalen Verzeichnis (nicht vom gemounteten Ordner) — auf deinem Mac normal per `npm test`.*
+
+---
+
+## Nachtrag 05.07. (nachmittags) — Deploy vorbereitet
+
+- ✅ Ordner ist jetzt **Git-Repo** (Branch `main`, Remote `git@github.com:kurpfalz-realschule/krs-schueler-hub.git`), Initial-Commit `deda62c` mit 15 Dateien.
+- ✅ **Test-&-Deploy-Gate** angelegt (`.github/workflows/test-and-deploy.yml`, Muster krs-connect-deploy): Push auf main → Playwright-Tests → Deploy nur bei Grün.
+- ✅ `.gitignore` (node_modules, test-results, playwright-report) + `README.md`.
+- ✅ Verifiziert: `node --check` auf tenant.js/config grün, `playwright test --list` = 7 Tests, kein Secret/Passwort im Repo (grep).
+- ⚠️ **Sandbox-Falle:** Beim Commit blieben `.git/HEAD.lock`, `.git/index.lock`, `.git/objects/maintenance.lock` zurück (Mount erlaubt kein Unlink). **Vor dem ersten Push auf dem Mac löschen** — steht im Push-Befehl der Anleitung.
+- 📄 DSB-/Petra-Nachricht als Entwurf: `../DSB-Nachricht-Schueler-Hub-Entwurf-2026-07-05.md` (bewusst NICHT im Repo).
+- Nächster Schritt: Norbert legt das Org-Repo an, setzt Pages auf „GitHub Actions", pusht → Live-Test im Vorschau-Modus.
