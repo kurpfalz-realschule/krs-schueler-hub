@@ -1,0 +1,15 @@
+{
+  "name": "krs-schueler-hub",
+  "version": "1.0.0",
+  "private": true,
+  "description": "KRS Schüler-Hub — zentraler Einstieg für Schüler:innen (Code-Login wie Projektwahl)",
+  "scripts": {
+    "test": "playwright test",
+    "test:list": "playwright test --list"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "http-server": "^14.1.1",
+    "typescript": "^5.5.0"
+  }
+}

@@ -1,0 +1,90 @@
+# =====================================================================
+# KRS Schüler-Hub — Test & Deploy Workflow
+# =====================================================================
+# Speicherort: kurpfalz-realschule/krs-schueler-hub → .github/workflows/test-and-deploy.yml
+#
+# Voraussetzungen im Repo:
+#   1. Repo → Settings → Pages → Source: GitHub Actions
+#   2. Repo → Settings → Actions → Workflow permissions: Read and write
+#
+# Trigger:
+#   - PR gegen main → Tests
+#   - Push main + Tests grün → Deploy auf GitHub Pages
+#   - Push main + Tests rot → Deploy blockiert, alte Version bleibt live
+# =====================================================================
+
+name: Test & Deploy Schüler-Hub
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: pages-schueler-hub
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  test:
+    name: Playwright Smoke (Demo-Mode)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci || npm install
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run smoke tests
+        run: npx playwright test
+        env:
+          CI: true
+      - name: Upload Playwright Report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-schueler-hub
+          path: playwright-report/
+          retention-days: 14
+
+  build:
+    name: Build _site
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Assemble deploy directory
+        run: |
+          mkdir -p _site
+          cp index.html tenant.js krs-supabase-config.js _site/
+          for f in krs-logo.jpg manifest.json sw.js favicon.ico; do
+            [ -f "$f" ] && cp "$f" _site/ || true
+          done
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
