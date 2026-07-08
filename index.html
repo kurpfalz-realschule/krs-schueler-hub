@@ -166,6 +166,17 @@ h2.page{font-size:19px;color:var(--krs-blau);margin:6px 0 14px}
 /* ===== Hinweis-Banner (Fallback) ===== */
 .banner{background:#fdf6e3;border:1px solid #ecd9a0;color:#7a5c10;border-radius:10px;padding:10px 14px;font-size:13px;line-height:1.5;margin-bottom:14px}
 
+/* ===== Ankündigungen ===== */
+.ann{background:#fff8ec;border:1px solid #f2dcae;border-radius:var(--radius);padding:12px 16px;margin-bottom:16px}
+.ann h3{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:#8a5310;margin-bottom:8px}
+.ann-item{padding:8px 0;border-top:1px solid #f2dcae}
+.ann-item:first-of-type{border-top:none;padding-top:0}
+.ann-item b{font-size:14.5px;display:block}
+.ann-item .txt{font-size:13.5px;color:var(--text);line-height:1.5;margin-top:2px}
+.ann-item .txt.rich{white-space:normal}
+.ann-item .von{font-size:11.5px;color:var(--text-dim);margin-top:3px}
+.hinweis{font-size:12px;color:var(--text-dim);background:var(--bg-subtle);border-radius:8px;padding:8px 11px;margin:10px 0 0;line-height:1.45}
+
 .loading-wrap{display:flex;justify-content:center;padding:40px}
 .loading-spinner{width:38px;height:38px;border:3px solid var(--border);border-top-color:var(--krs-blau);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -237,6 +248,10 @@ h2.page{font-size:19px;color:var(--krs-blau);margin:6px 0 14px}
     ],
     nachrichten: [
       { id: 'n1', lehrer: 'Herr Kotzan', betreff: 'Frage zur Schulband', inhalt: 'Kann ich nächste Woche zur Probe dazukommen?', antwort: 'Klar, komm einfach Donnerstag in der 7. Stunde vorbei!', beantwortet_am: plus(-1).toISOString(), created_at: plus(-2).toISOString() }
+    ],
+    ankuendigungen: [
+      { id: 'a1', titel: 'Wandertag am Freitag', inhalt: 'Bitte festes Schuhwerk und Vesper mitbringen. Treffpunkt 8:00 Uhr am Haupteingang.', von_name: 'Herr Kotzan', created_at: plus(-1).toISOString() },
+      { id: 'a2', titel: 'Bücherrückgabe', inhalt: 'Denkt daran, die Leihbücher bis Ende der Woche zurückzugeben.', von_name: 'Frau Musterfrau', created_at: plus(-3).toISOString() }
     ]
   };
   let _mockPostSeq = 100;
@@ -357,6 +372,15 @@ h2.page{font-size:19px;color:var(--krs-blau);margin:6px 0 14px}
       if (this.isDemo) { await sleep(120); return { success: true, nachrichten: MOCK.nachrichten.map(n => ({ ...n })) }; }
       const { data, error } = await client().rpc('hub_get_meine_nachrichten', { p_code: code });
       if (error) return { success: false, error: 'verbindung' };
+      return data;
+    },
+
+    // Ankündigungen der Lehrkräfte (Klassenlehrer → Klasse/Stufe/global)
+    async getAnkuendigungen(code) {
+      if (this.isDemo) { await sleep(120); return { success: true, ankuendigungen: MOCK.ankuendigungen.map(a => ({ ...a })) }; }
+      const { data, error } = await client().rpc('hub_get_ankuendigungen', { p_code: code });
+      // Fehlt die RPC (Migration v2 noch nicht eingespielt) → leise leer
+      if (error) return { success: true, ankuendigungen: [] };
       return data;
     }
   };
@@ -589,6 +613,12 @@ function LoginView({ onLogin, busy, error, initialCode }) {
 function Dashboard({ dash, code, go }) {
   const s = dash.schueler;
   const naechste = (dash.termine || []).slice(0, 3);
+  const [anns, setAnns] = useState([]);
+  useEffect(() => {
+    let aktiv = true;
+    D.getAnkuendigungen(code).then(r => { if (aktiv && r && r.success) setAnns(r.ankuendigungen || []); });
+    return () => { aktiv = false; };
+  }, [code]);
   const moduleTiles = (T.module || []).map(m => {
     const disabled = !m.url;
     const url = !disabled && m.passCode ? m.url + (m.url.includes('?') ? '&' : '?') + 'code=' + encodeURIComponent(code) : m.url;
@@ -596,6 +626,16 @@ function Dashboard({ dash, code, go }) {
   });
   return html`
     ${dash.fallback && html`<div class="banner">🔧 Der Schüler-Hub ist im <b>Vorschau-Modus</b>: Kalender, Teams und Nachrichten werden bald freigeschaltet. Die App-Links funktionieren schon!</div>`}
+    ${anns.length > 0 && html`
+      <div class="ann" data-testid="ankuendigungen">
+        <h3>📢 Ankündigungen</h3>
+        ${anns.map(a => html`
+          <div class="ann-item" key=${a.id}>
+            <b>${a.titel}</b>
+            <${ContentView} inhalt=${a.inhalt} />
+            <div class="von">${a.von_name}${a.created_at ? ' · ' + fmtZeit(a.created_at) : ''}</div>
+          </div>`)}
+      </div>`}
     <div class="soon">
       <h3>📅 Demnächst — Klasse ${s.klasse}</h3>
       ${naechste.length === 0
@@ -708,6 +748,7 @@ function TeamDetail({ code, team, toast }) {
 
   return html`
     <h2 class="page">${team.name}</h2>
+    <div class="hinweis" style="margin:0 0 12px">ℹ️ Beiträge in diesem Team sind für alle Mitglieder und für Lehrkräfte sichtbar.</div>
     ${posts === null ? html`<${Spinner}/>` : html`
       <div class="posts" data-testid="posts">
         ${posts.length === 0 && html`<div class="empty">Noch keine Beiträge — schreib den ersten!</div>`}
@@ -765,6 +806,7 @@ function NachrichtenView({ code, toast }) {
 
   return html`
     <h2 class="page">✉️ Lehrkraft kontaktieren</h2>
+    <div class="hinweis" data-testid="transparenz-hinweis" style="margin:0 0 14px">ℹ️ Lehrkräfte der Schule können deine Nachrichten und Antworten einsehen. Schreib freundlich und sachlich.</div>
     ${!zeigeForm && html`
       <button class="primary-btn" data-testid="neue-nachricht" style="margin:0 0 16px" onClick=${() => setZeigeForm(true)}>+ Neue Nachricht</button>`}
     ${zeigeForm && html`

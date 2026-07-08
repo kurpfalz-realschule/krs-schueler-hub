@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<meta name="theme-color" content="#3a5468">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>KRS Schüler-Hub — Lehrer-Panel</title>
+<style>
+:root{
+  --krs-blau:#3a5468; --krs-blau-hell:#4A6A83; --krs-orange:#E87722; --krs-gelb:#F0B429;
+  --bg:#eef1f4; --bg-subtle:#e3e8ed; --card:#ffffff; --text:#22303c; --text-dim:#5b6b7a;
+  --border:#d6dde4; --success:#1a9c6b; --danger:#c0392b; --warn:#a36a00;
+  --shadow:0 1px 3px rgba(34,48,60,.10); --shadow-lg:0 6px 24px rgba(34,48,60,.14); --radius:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+button{font:inherit;cursor:pointer;border:none;background:none;min-height:44px}
+input,select,textarea{font:inherit;color:inherit}
+a{color:var(--krs-blau-hell)}
+
+.mode-badge{position:fixed;bottom:10px;left:10px;padding:5px 9px;border-radius:5px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;z-index:100;box-shadow:var(--shadow-lg);pointer-events:none}
+.mode-badge.demo{background:var(--krs-orange);color:#fff}
+.mode-badge.produktiv{background:var(--success);color:#fff;opacity:.9}
+
+/* Login */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(160deg,var(--krs-blau) 0%,#2b3f4f 100%)}
+.login-card{background:var(--card);border-radius:18px;box-shadow:var(--shadow-lg);padding:34px 28px;width:100%;max-width:430px}
+.login-card h1{font-size:21px;color:var(--krs-blau);margin-bottom:4px;text-align:center}
+.login-card .sub{color:var(--text-dim);font-size:13.5px;margin-bottom:20px;text-align:center}
+.login-card label{display:block;font-size:13px;font-weight:700;color:var(--text-dim);margin:12px 0 5px}
+.login-card input{width:100%;padding:12px;border:1.5px solid var(--border);border-radius:10px;font-size:15px;outline:none}
+.login-card input:focus{border-color:var(--krs-blau-hell)}
+.login-btn{width:100%;margin-top:18px;padding:13px;background:var(--krs-orange);color:#fff;font-weight:700;font-size:16px;border-radius:10px}
+.login-btn:disabled{opacity:.55}
+.login-err{margin-top:12px;color:var(--danger);font-size:14px;font-weight:600;text-align:center}
+.login-note{margin-top:16px;font-size:12.5px;color:var(--text-dim);line-height:1.5;text-align:center}
+
+/* Header */
+.hdr{background:var(--krs-blau);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50;box-shadow:var(--shadow)}
+.hdr .t{flex:1;min-width:0}
+.hdr .t b{display:block;font-size:15px}
+.hdr .t span{font-size:12px;opacity:.85}
+.hdr .user{font-size:12px;text-align:right;line-height:1.35}
+.logout-btn{color:#fff;opacity:.85;font-size:12px;text-decoration:underline;min-height:auto;padding:4px}
+
+.wrap{max-width:820px;margin:0 auto;padding:16px 14px 70px}
+
+/* Tabs */
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.tab{padding:9px 15px;border-radius:999px;border:1px solid var(--border);background:var(--card);font-size:14px;font-weight:600;color:var(--text-dim);position:relative}
+.tab.on{background:var(--krs-blau);color:#fff;border-color:var(--krs-blau)}
+.tab .cnt{margin-left:6px;background:var(--krs-orange);color:#fff;border-radius:999px;font-size:11px;font-weight:800;padding:1px 7px}
+
+h2.page{font-size:18px;color:var(--krs-blau);margin:4px 0 12px}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:12px}
+.empty{color:var(--text-dim);text-align:center;padding:30px 12px;font-size:14.5px;line-height:1.6}
+
+/* Sicht-Hinweis */
+.sicht-banner{border-radius:10px;padding:11px 14px;font-size:13px;line-height:1.5;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start}
+.sicht-banner.eng{background:#e4f0fb;border:1px solid #b9d6ef;color:#1c4e7a}
+.sicht-banner.breit{background:#fdf0e2;border:1px solid #f0cfa5;color:#8a5310}
+.sicht-banner .ic{font-size:17px;line-height:1.2}
+
+/* Postfach */
+.msg{border-left:3px solid var(--border);padding-left:12px;margin-bottom:6px}
+.msg.offen{border-left-color:var(--krs-orange)}
+.msg.an-mich{border-left-color:var(--krs-blau-hell)}
+.msg .top{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
+.msg .betreff{font-size:15px;font-weight:700}
+.msg .meta{font-size:12px;color:var(--text-dim);margin:3px 0 8px}
+.pill{display:inline-block;font-size:11px;font-weight:800;border-radius:999px;padding:2px 8px;margin-left:6px;text-transform:uppercase;letter-spacing:.4px}
+.pill.offen{background:#fdeee2;color:var(--krs-orange)}
+.pill.mine{background:#e4f0fb;color:#1c4e7a}
+.pill.done{background:#e4f5ee;color:var(--success)}
+.msg .txt{font-size:14px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}
+.msg .txt.rich{white-space:normal}
+.msg .txt.rich img{max-width:100%;height:auto;border-radius:8px;margin:6px 0;display:block}
+.antwort-box{margin-top:10px;background:#f2f7f4;border-left:3px solid var(--success);border-radius:0 8px 8px 0;padding:9px 12px}
+.antwort-box .al{font-size:11.5px;font-weight:800;color:var(--success);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.reply-row{margin-top:10px}
+.reply-row textarea{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14.5px;resize:vertical;min-height:70px;outline:none}
+.reply-row textarea:focus{border-color:var(--krs-blau-hell)}
+
+/* Formulare */
+.form label{display:block;font-size:13px;font-weight:700;color:var(--text-dim);margin:12px 0 5px}
+.form input,.form select,.form textarea{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:11px 12px;font-size:15px;background:var(--card);outline:none}
+.form input:focus,.form select:focus,.form textarea:focus{border-color:var(--krs-blau-hell)}
+.form textarea{min-height:100px;resize:vertical}
+.row2{display:flex;gap:10px;flex-wrap:wrap}
+.row2>div{flex:1;min-width:140px}
+.primary-btn{background:var(--krs-orange);color:#fff;font-weight:700;border-radius:10px;padding:12px 22px;margin-top:14px;font-size:15px}
+.primary-btn:disabled{opacity:.55}
+.ghost-btn{color:var(--text-dim);font-size:14px;padding:12px 14px;margin-top:14px}
+.mini-btn{font-size:12.5px;color:var(--danger);text-decoration:underline;padding:4px;min-height:auto}
+
+/* Ankündigung/Termin-Kacheln in Vorschau */
+.ank{background:#fff8ec;border:1px solid #f2dcae;border-radius:12px;padding:11px 14px;margin-bottom:10px}
+.ank .titel{font-weight:700;font-size:15px;color:#8a5310}
+.ank .von{font-size:12px;color:var(--text-dim);margin-top:2px}
+.ank .txt{font-size:14px;line-height:1.5;margin-top:6px;white-space:pre-wrap}
+.termin{display:flex;gap:12px;align-items:flex-start}
+.termin .datum{min-width:52px;text-align:center;background:var(--bg-subtle);border-radius:10px;padding:6px 4px}
+.termin .datum b{display:block;font-size:18px;color:var(--krs-blau)}
+.termin .datum span{font-size:11px;color:var(--text-dim);text-transform:uppercase}
+.typ-tag{display:inline-block;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;border-radius:4px;padding:2px 7px;margin-left:6px}
+.typ-klassenarbeit{background:#fdeee2;color:var(--krs-orange)}
+.typ-termin{background:#e8eef3;color:var(--krs-blau-hell)}
+.typ-event{background:#fdf6e3;color:#a07c1a}
+.typ-ferien{background:#e4f5ee;color:var(--success)}
+.preview-frame{border:2px dashed var(--border);border-radius:14px;padding:14px;background:#fbfcfd}
+.preview-frame .plabel{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--text-dim);font-weight:800;margin-bottom:10px}
+
+/* Toast */
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;padding:11px 20px;border-radius:999px;font-size:14px;font-weight:600;box-shadow:var(--shadow-lg);z-index:200;max-width:92vw;text-align:center}
+.toast.err{background:var(--danger)}
+.toast.ok{background:var(--success)}
+.loading-wrap{display:flex;justify-content:center;padding:40px}
+.loading-spinner{width:38px;height:38px;border:3px solid var(--border);border-top-color:var(--krs-blau);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.audit-row{font-size:12.5px;color:var(--text-dim);border-bottom:1px solid var(--border);padding:7px 0;display:flex;gap:10px;flex-wrap:wrap}
+.audit-row b{color:var(--text)}
+</style>
+<script src="tenant.js"></script>
+<script src="krs-supabase-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.4.11/purify.min.js"></script>
+<script>if(!window.DOMPurify){document.write('<script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.11/dist/purify.min.js"><\/script>');}</script>
+<script>
+// =====================================================================
+// LehrerData — DataService (Dual-Mode: Demo + Produktiv)
+// Produktiv: Supabase-Auth (E-Mail+Passwort) in der SCHÜLER-DB
+// (Projektwahl-Projekt), danach ausschließlich hub_lehrer_*-RPCs.
+// Kein Zugriff auf die Lehrer-DB (Connect) von hier.
+// =====================================================================
+(function () {
+  'use strict';
+  const CFG = window.KRS_SUPABASE || {};
+  const _qs = new URLSearchParams(window.location.search);
+  const _forceMode = _qs.get('forceMode');
+  const HAS_SUPABASE =
+    _forceMode !== 'demo' &&
+    !!CFG.url && !!(CFG.publishableKey || CFG.anonKey) &&
+    typeof window.supabase !== 'undefined';
+
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  const nowISO = () => new Date().toISOString();
+  const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString(); };
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const plusDay = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return iso(d); };
+
+  // ---------- Demo-Zustand (keine echten Personen!) ----------
+  const DEMO = {
+    sicht: 'nur_eigene',                       // Default = enger Modus
+    ich: { kuerzel: 'Ko', anzeigename: 'Herr Kotzan', actor: 'Ko' },
+    nachrichten: [
+      { id: 'n1', schueler: 'Mia Muster (7b)', an_kuerzel: 'Ko', an_mich: true,
+        betreff: 'Frage zur Schulband', inhalt: 'Kann ich nächste Woche zur Probe dazukommen?',
+        antwort: null, beantwortet_am: null, created_at: daysAgo(1) },
+      { id: 'n2', schueler: 'Tim Test (7b)', an_kuerzel: 'Ko', an_mich: true,
+        betreff: 'Material Projektwoche', inhalt: 'Sollen wir eigene Gartenhandschuhe mitbringen?',
+        antwort: 'Ja, bitte mitbringen — es gibt nur wenige Ersatzpaare.', beantwortet_am: daysAgo(0), created_at: daysAgo(2) },
+      { id: 'n3', schueler: 'Lena Beispiel (8a)', an_kuerzel: 'Mu', an_mich: false,
+        betreff: 'Krankmeldung', inhalt: 'Ich bin morgen leider krank.',
+        antwort: null, beantwortet_am: null, created_at: daysAgo(0) }
+    ],
+    ankuendigungen: [
+      { id: 'a1', ziel_typ: 'klasse', ziel_wert: '7b', titel: 'Wandertag am Freitag',
+        inhalt: 'Bitte festes Schuhwerk und Vesper mitbringen. Treffpunkt 8:00 Uhr am Haupteingang.',
+        von_name: 'Herr Kotzan', gueltig_bis: plusDay(5), aktiv: true, created_at: daysAgo(1) }
+    ],
+    teams: [
+      { id: 't1', name: 'Projekt: Schulgarten', typ: 'projekt' },
+      { id: 't2', name: 'Schulband', typ: 'ag' }
+    ],
+    termine: [
+      { id: 'e1', titel: 'Mathe-Klassenarbeit', beschreibung: 'Terme und Gleichungen', datum: plusDay(4), typ: 'klassenarbeit', klasse: '7b' },
+      { id: 'e3', titel: 'Projekttage', beschreibung: 'Drei Tage Projekte', datum: '2026-07-21', typ: 'event', klasse: null }
+    ],
+    links: [
+      { id: 'l1', titel: 'Schul-Homepage', url: 'https://realschule-schriesheim.de/', beschreibung: '', kategorie: 'Allgemein' }
+    ],
+    audit: [
+      { actor: 'Ko', aktion: 'postfach_ansehen', ziel: 'nur_eigene', detail: {}, created_at: daysAgo(0) }
+    ]
+  };
+  let _seq = 100;
+
+  let _client = null;
+  function client() {
+    if (!_client) _client = window.supabase.createClient(CFG.url, CFG.publishableKey || CFG.anonKey);
+    return _client;
+  }
+  async function rpc(fn, args) {
+    const { data, error } = await client().rpc(fn, args || {});
+    if (error) return { success: false, error: 'verbindung', _raw: error.message };
+    return data;
+  }
+
+  window.LehrerData = {
+    isDemo: !HAS_SUPABASE,
+    _session: null,
+
+    // ---- Auth ----
+    async currentUser() {
+      if (this.isDemo) return this._session;
+      const { data } = await client().auth.getUser();
+      return data && data.user ? { email: data.user.email } : null;
+    },
+    async login(email, passwort) {
+      if (this.isDemo) {
+        await sleep(200);
+        this._session = { email: 'demo-lehrkraft@realschule-schriesheim.de', ich: DEMO.ich };
+        return { success: true };
+      }
+      const { error } = await client().auth.signInWithPassword({ email: String(email || '').trim(), password: passwort || '' });
+      if (error) return { success: false, error: 'login_fehlgeschlagen', _raw: error.message };
+      return { success: true };
+    },
+    async logout() {
+      if (this.isDemo) { this._session = null; return; }
+      try { await client().auth.signOut(); } catch (e) {}
+    },
+
+    // ---- Postfach ----
+    async getPostfach() {
+      if (this.isDemo) {
+        await sleep(200);
+        const sichtbar = DEMO.sicht === 'breit' ? DEMO.nachrichten : DEMO.nachrichten.filter(n => n.an_mich);
+        return { success: true, sicht: DEMO.sicht, ich: DEMO.ich, nachrichten: sichtbar.map(n => ({ ...n })) };
+      }
+      return await rpc('hub_lehrer_get_postfach');
+    },
+    async antworten(id, text) {
+      if (this.isDemo) {
+        await sleep(180);
+        const n = DEMO.nachrichten.find(x => x.id === id);
+        if (!n) return { success: false, error: 'nicht_gefunden' };
+        if (DEMO.sicht !== 'breit' && !n.an_mich) return { success: false, error: 'nicht_berechtigt' };
+        n.antwort = text; n.beantwortet_am = nowISO();
+        DEMO.audit.unshift({ actor: DEMO.ich.actor, aktion: 'antwort', ziel: id, detail: {}, created_at: nowISO() });
+        return { success: true };
+      }
+      return await rpc('hub_lehrer_antworten', { p_id: id, p_antwort: text });
+    },
+
+    // ---- Ankündigungen ----
+    async getAnkuendigungen() {
+      if (this.isDemo) { await sleep(150); return { success: true, ankuendigungen: DEMO.ankuendigungen.filter(a => a.aktiv).map(a => ({ ...a })) }; }
+      return await rpc('hub_lehrer_get_ankuendigungen');
+    },
+    async neueAnkuendigung(ziel_typ, ziel_wert, titel, inhalt, gueltig_bis) {
+      if (this.isDemo) {
+        await sleep(180);
+        const id = 'a' + (_seq++);
+        DEMO.ankuendigungen.unshift({ id, ziel_typ, ziel_wert: ziel_typ === 'global' ? null : ziel_wert, titel, inhalt, von_name: DEMO.ich.anzeigename, gueltig_bis: gueltig_bis || null, aktiv: true, created_at: nowISO() });
+        DEMO.audit.unshift({ actor: DEMO.ich.actor, aktion: 'ankuendigung_neu', ziel: ziel_typ, detail: { id }, created_at: nowISO() });
+        return { success: true, id };
+      }
+      return await rpc('hub_lehrer_ankuendigung', { p_ziel_typ: ziel_typ, p_ziel_wert: ziel_wert, p_titel: titel, p_inhalt: inhalt, p_gueltig_bis: gueltig_bis || null });
+    },
+    async ankuendigungLoeschen(id) {
+      if (this.isDemo) {
+        await sleep(120);
+        const a = DEMO.ankuendigungen.find(x => x.id === id); if (a) a.aktiv = false;
+        return { success: true };
+      }
+      return await rpc('hub_lehrer_ankuendigung_loeschen', { p_id: id });
+    },
+
+    // ---- Schüler-Vorschau ----
+    async vorschau(ziel_typ, ziel_wert) {
+      if (this.isDemo) {
+        await sleep(160);
+        const kl = ziel_typ === 'klasse' ? ziel_wert : null;
+        const st = ziel_typ === 'stufe' ? parseInt(ziel_wert, 10) : null;
+        const passt = (arr) => arr.filter(x => {
+          if (ziel_typ === 'global') return x.klasse == null;
+          if (kl) return x.klasse == null || String(x.klasse).toLowerCase() === String(kl).toLowerCase();
+          if (st) return x.klasse == null; // Demo: Stufe zeigt nur globale + stufige
+          return true;
+        });
+        const ank = DEMO.ankuendigungen.filter(a => a.aktiv).filter(a => {
+          if (a.ziel_typ === 'global') return true;
+          if (a.ziel_typ === 'klasse' && kl) return String(a.ziel_wert).toLowerCase() === String(kl).toLowerCase();
+          if (a.ziel_typ === 'stufe' && st) return parseInt(a.ziel_wert, 10) === st;
+          return false;
+        });
+        return { success: true, kontext: { ziel_typ, klasse: kl, stufe: st },
+          ankuendigungen: ank.map(a => ({ ...a })), termine: passt(DEMO.termine).map(t => ({ ...t })),
+          links: DEMO.links.map(l => ({ ...l })), teams: DEMO.teams.map(t => ({ ...t })) };
+      }
+      return await rpc('hub_lehrer_vorschau', { p_ziel_typ: ziel_typ, p_ziel_wert: ziel_wert || null });
+    },
+
+    // ---- Audit ----
+    async audit() {
+      if (this.isDemo) { await sleep(120); return { success: true, eintraege: DEMO.audit.map(a => ({ ...a })) }; }
+      return await rpc('hub_lehrer_audit', { p_limit: 100 });
+    }
+  };
+})();
+</script>
+</head>
+<body>
+<div id="app"></div>
+<script type="module">
+import { h, render } from 'https://esm.sh/preact@10.19.3';
+import { useState, useEffect } from 'https://esm.sh/preact@10.19.3/hooks';
+import htm from 'https://esm.sh/htm@3.1.1';
+const html = htm.bind(h);
+
+const T = window.TENANT || {};
+const D = window.LehrerData;
+
+const ERR = {
+  login_fehlgeschlagen: 'Anmeldung fehlgeschlagen — E-Mail oder Passwort prüfen.',
+  verbindung: 'Verbindungsproblem — bitte später erneut versuchen.',
+  nicht_berechtigt: 'Dazu bist du nicht berechtigt (enger Sicht-Modus).',
+  nicht_gefunden: 'Nachricht nicht gefunden.',
+  inhalt_laenge: 'Der Text ist zu kurz oder zu lang.',
+  ziel_wert_fehlt: 'Bitte Klasse bzw. Stufe angeben.',
+  team_unbekannt: 'Team nicht gefunden.'
+};
+const errText = (e) => ERR[e] || ERR.verbindung;
+
+const RT_TAGS = ['p','br','b','strong','i','em','u','s','a','ul','ol','li','h1','h2','h3','blockquote','pre','code','span','div','img'];
+const RT_ATTR = ['href','target','rel','style','src','alt','width','height'];
+function legacySanitize(s){const t=document.createElement('div');t.innerHTML=String(s||'');t.querySelectorAll('script,iframe,object,embed,form,input,button,style,link,svg,math,meta,base').forEach(e=>e.remove());t.querySelectorAll('*').forEach(el=>{for(const a of[...el.attributes]){const n=a.name.toLowerCase(),v=a.value.trim().toLowerCase();if(n.startsWith('on')||n==='srcdoc')el.removeAttribute(a.name);else if(n==='href'&&!/^https?:/i.test(v))el.removeAttribute(a.name);else if(n==='src'&&v.startsWith('data:')&&!/^data:image\//i.test(v))el.removeAttribute(a.name);else if(!RT_ATTR.includes(n))el.removeAttribute(a.name);}if(!RT_TAGS.includes(el.tagName.toLowerCase()))el.replaceWith(...el.childNodes);});return t.innerHTML;}
+function sanitizeHtml(s){
+  if(!s)return '';
+  const t=document.createElement('div');
+  t.innerHTML=(window.DOMPurify&&window.DOMPurify.sanitize)
+    ? window.DOMPurify.sanitize(String(s),{ALLOWED_TAGS:RT_TAGS,ALLOWED_ATTR:RT_ATTR,ADD_DATA_URI_TAGS:['img'],ALLOW_DATA_ATTR:false})
+    : legacySanitize(s);
+  t.querySelectorAll('img').forEach(img=>{const src=(img.getAttribute('src')||'').trim();if(!(/^https?:\/\//i.test(src)||/^data:image\//i.test(src))){img.remove();return;}img.setAttribute('loading','lazy');img.setAttribute('referrerpolicy','no-referrer');});
+  t.querySelectorAll('a').forEach(a=>{a.setAttribute('target','_blank');a.setAttribute('rel','noopener noreferrer');});
+  return t.innerHTML;
+}
+const looksLikeHtml = (s) => /<[a-z][\s\S]*>/i.test(String(s || ''));
+window.__lp_sanitizeHtml = sanitizeHtml; // Test-Hook
+
+const fmtZeit = (s) => new Date(s).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})+', '+new Date(s).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+const fmtDatum=(s)=>{const d=new Date(s+'T00:00:00');return{tag:d.getDate(),monat:d.toLocaleDateString('de-DE',{month:'short'})};};
+const TYP_LABEL={klassenarbeit:'Klassenarbeit',termin:'Termin',event:'Event',ferien:'Ferien'};
+
+function StudentContent({ inhalt }) {
+  return looksLikeHtml(inhalt)
+    ? html`<div class="txt rich" dangerouslySetInnerHTML=${{ __html: sanitizeHtml(inhalt) }}></div>`
+    : html`<div class="txt">${inhalt}</div>`;
+}
+function Toast({ toast }) { return toast ? html`<div class="toast ${toast.typ||''}">${toast.text}</div>` : null; }
+function Spinner() { return html`<div class="loading-wrap"><div class="loading-spinner"></div></div>`; }
+
+// ============================ LOGIN ============================
+function LoginView({ onDone, toast }) {
+  const [email, setEmail] = useState('');
+  const [pw, setPw] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const submit = async (e) => {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true); setErr('');
+    const res = await D.login(email, pw);
+    setBusy(false);
+    if (res.success) onDone(); else setErr(errText(res.error));
+  };
+  return html`
+    <div class="login-wrap">
+      <form class="login-card" onSubmit=${submit}>
+        <h1>${(T.schule && T.schule.name_kurz) || 'KRS'} Schüler-Hub · Lehrer-Panel</h1>
+        <div class="sub">Nachrichten beantworten · Ankündigungen · Schüler-Vorschau</div>
+        ${D.isDemo ? html`
+          <div class="login-note" style="margin-bottom:6px">Demo-Modus — kein echtes Konto nötig.</div>
+          <button class="login-btn" data-testid="demo-login" type="submit" disabled=${busy}>
+            ${busy ? 'Anmelden …' : 'Als Demo-Lehrkraft anmelden'}
+          </button>
+        ` : html`
+          <label>Dienst-E-Mail</label>
+          <input data-testid="email" type="email" autocomplete="username" value=${email}
+            onInput=${(e) => setEmail(e.target.value)} placeholder="name@realschule-schriesheim.de" />
+          <label>Passwort</label>
+          <input data-testid="pw" type="password" autocomplete="current-password" value=${pw}
+            onInput=${(e) => setPw(e.target.value)} />
+          <button class="login-btn" data-testid="login-btn" type="submit" disabled=${busy}>
+            ${busy ? 'Anmelden …' : 'Anmelden'}
+          </button>
+        `}
+        ${err && html`<div class="login-err" data-testid="login-error">${err}</div>`}
+        <div class="login-note">
+          Zugang für Lehrkräfte der ${(T.schule && T.schule.name_lang) || 'KRS'}.<br/>
+          Kein Zugang? Wende dich an die Schul-IT.
+        </div>
+      </form>
+    </div>`;
+}
+
+// ============================ POSTFACH ============================
+function SichtBanner({ sicht }) {
+  if (sicht === 'breit') return html`
+    <div class="sicht-banner breit" data-testid="sicht-banner">
+      <span class="ic">👁️</span>
+      <div><b>Erweiterter Einblick aktiv.</b> Du siehst Nachrichten <b>aller</b> Schüler:innen.
+      Jeder Zugriff wird protokolliert (Reiter „Protokoll"). Bitte nur im Rahmen deiner Fürsorgepflicht nutzen.</div>
+    </div>`;
+  return html`
+    <div class="sicht-banner eng" data-testid="sicht-banner">
+      <span class="ic">🔒</span>
+      <div><b>Enger Modus.</b> Du siehst nur Nachrichten, die direkt an dich adressiert sind.</div>
+    </div>`;
+}
+
+function PostfachView({ toast }) {
+  const [data, setData] = useState(null);
+  const [reply, setReply] = useState({});
+  const [busy, setBusy] = useState('');
+
+  const load = async () => { const r = await D.getPostfach(); setData(r.success ? r : { sicht: 'nur_eigene', nachrichten: [] }); };
+  useEffect(() => { load(); }, []);
+  if (!data) return html`<${Spinner}/>`;
+
+  const send = async (id) => {
+    const text = (reply[id] || '').trim();
+    if (!text) { toast('Bitte eine Antwort schreiben.', 'err'); return; }
+    setBusy(id);
+    const res = await D.antworten(id, text);
+    setBusy('');
+    if (res.success) { toast('Antwort gesendet.', 'ok'); setReply(p => ({ ...p, [id]: '' })); load(); }
+    else toast(errText(res.error), 'err');
+  };
+
+  const offen = data.nachrichten.filter(n => !n.antwort).length;
+  return html`
+    <h2 class="page">✉️ Postfach ${offen > 0 ? html`<span style="color:var(--krs-orange)">(${offen} offen)</span>` : ''}</h2>
+    <${SichtBanner} sicht=${data.sicht} />
+    ${data.nachrichten.length === 0
+      ? html`<div class="empty">Keine Nachrichten.<br/>${data.sicht !== 'breit' ? 'Im engen Modus erscheinen hier nur an dich adressierte Nachrichten.' : ''}</div>`
+      : data.nachrichten.map(n => html`
+        <div class="card" data-testid="postfach-msg" key=${n.id}>
+          <div class="msg ${!n.antwort ? 'offen' : ''} ${n.an_mich ? 'an-mich' : ''}">
+            <div class="top">
+              <span class="betreff">${n.betreff}</span>
+              <span>
+                ${n.an_mich ? html`<span class="pill mine">an mich</span>` : ''}
+                ${n.antwort ? html`<span class="pill done">beantwortet</span>` : html`<span class="pill offen">offen</span>`}
+              </span>
+            </div>
+            <div class="meta">von ${n.schueler} · ${fmtZeit(n.created_at)}${n.an_kuerzel ? ' · an: ' + n.an_kuerzel : ''}</div>
+            <${StudentContent} inhalt=${n.inhalt} />
+            ${n.antwort && html`
+              <div class="antwort-box">
+                <div class="al">Antwort · ${n.beantwortet_am ? fmtZeit(n.beantwortet_am) : ''}</div>
+                <${StudentContent} inhalt=${n.antwort} />
+              </div>`}
+            ${!n.antwort && html`
+              <div class="reply-row">
+                <textarea data-testid="reply-input" placeholder="Antwort an ${n.schueler} …"
+                  value=${reply[n.id] || ''} onInput=${(e) => setReply(p => ({ ...p, [n.id]: e.target.value }))}></textarea>
+                <button class="primary-btn" data-testid="reply-send" style="margin-top:8px"
+                  disabled=${busy === n.id} onClick=${() => send(n.id)}>${busy === n.id ? 'Sende …' : 'Antworten'}</button>
+              </div>`}
+          </div>
+        </div>`)}`;
+}
+
+// ============================ ANKÜNDIGUNGEN ============================
+const KLASSEN = ['5a','5b','5c','6a','6b','6c','7a','7b','7c','8a','8b','8c','9a','9b','9c','10a','10b','10c'];
+const STUFEN = ['5','6','7','8','9','10'];
+
+function AnkuendigungenView({ toast }) {
+  const [list, setList] = useState(null);
+  const [form, setForm] = useState({ ziel_typ: 'klasse', ziel_wert: '7b', titel: '', inhalt: '', gueltig_bis: '' });
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => { const r = await D.getAnkuendigungen(); setList(r.success ? r.ankuendigungen : []); };
+  useEffect(() => { load(); }, []);
+
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const submit = async (e) => {
+    e.preventDefault();
+    if (busy) return;
+    if (!form.titel.trim()) { toast('Bitte einen Titel eingeben.', 'err'); return; }
+    if (!form.inhalt.trim()) { toast('Bitte einen Text eingeben.', 'err'); return; }
+    if (form.ziel_typ !== 'global' && !form.ziel_wert) { toast('Bitte Klasse bzw. Stufe wählen.', 'err'); return; }
+    setBusy(true);
+    const res = await D.neueAnkuendigung(form.ziel_typ, form.ziel_wert, form.titel.trim(), sanitizeHtml(form.inhalt.trim()), form.gueltig_bis || null);
+    setBusy(false);
+    if (res.success) { toast('Ankündigung veröffentlicht.', 'ok'); setForm(p => ({ ...p, titel: '', inhalt: '' })); load(); }
+    else toast(errText(res.error), 'err');
+  };
+  const del = async (id) => { const res = await D.ankuendigungLoeschen(id); if (res.success) { toast('Zurückgezogen.', 'ok'); load(); } else toast(errText(res.error), 'err'); };
+
+  const zielText = (a) => a.ziel_typ === 'global' ? 'ganze Schule' : (a.ziel_typ === 'stufe' ? 'Stufe ' + a.ziel_wert : 'Klasse ' + a.ziel_wert);
+  return html`
+    <h2 class="page">📢 Ankündigungen</h2>
+    <form class="card form" onSubmit=${submit}>
+      <div class="row2">
+        <div>
+          <label>An</label>
+          <select data-testid="ank-ziel-typ" value=${form.ziel_typ} onChange=${(e) => set('ziel_typ', e.target.value)}>
+            <option value="klasse">Eine Klasse</option>
+            <option value="stufe">Eine Stufe</option>
+            <option value="global">Ganze Schule</option>
+          </select>
+        </div>
+        ${form.ziel_typ === 'klasse' && html`<div>
+          <label>Klasse</label>
+          <select data-testid="ank-klasse" value=${form.ziel_wert} onChange=${(e) => set('ziel_wert', e.target.value)}>
+            ${KLASSEN.map(k => html`<option value=${k} key=${k}>${k}</option>`)}
+          </select></div>`}
+        ${form.ziel_typ === 'stufe' && html`<div>
+          <label>Stufe</label>
+          <select value=${form.ziel_wert} onChange=${(e) => set('ziel_wert', e.target.value)}>
+            ${STUFEN.map(k => html`<option value=${k} key=${k}>${k}</option>`)}
+          </select></div>`}
+        <div>
+          <label>Gültig bis (optional)</label>
+          <input type="date" value=${form.gueltig_bis} onInput=${(e) => set('gueltig_bis', e.target.value)} />
+        </div>
+      </div>
+      <label>Titel</label>
+      <input data-testid="ank-titel" maxlength="150" value=${form.titel} onInput=${(e) => set('titel', e.target.value)} placeholder="z. B. Wandertag am Freitag" />
+      <label>Text</label>
+      <textarea data-testid="ank-inhalt" value=${form.inhalt} onInput=${(e) => set('inhalt', e.target.value)} placeholder="Was sollen die Schüler:innen wissen?"></textarea>
+      <button class="primary-btn" data-testid="ank-senden" type="submit" disabled=${busy}>${busy ? 'Veröffentliche …' : 'Veröffentlichen'}</button>
+    </form>
+
+    ${list === null ? html`<${Spinner}/>` : list.length === 0
+      ? html`<div class="empty">Noch keine aktiven Ankündigungen.</div>`
+      : list.map(a => html`
+        <div class="card" data-testid="ank-item" key=${a.id}>
+          <div class="ank" style="margin:0">
+            <div class="titel">${a.titel}</div>
+            <div class="von">${zielText(a)} · ${a.von_name} · ${fmtZeit(a.created_at)}${a.gueltig_bis ? ' · gültig bis ' + a.gueltig_bis : ''}</div>
+            <${StudentContent} inhalt=${a.inhalt} />
+            <button class="mini-btn" data-testid="ank-loeschen" onClick=${() => del(a.id)}>Zurückziehen</button>
+          </div>
+        </div>`)}`;
+}
+
+// ============================ SCHÜLER-VORSCHAU ============================
+function VorschauView({ toast }) {
+  const [typ, setTyp] = useState('klasse');
+  const [wert, setWert] = useState('7b');
+  const [data, setData] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    setBusy(true);
+    const r = await D.vorschau(typ, typ === 'global' ? null : wert);
+    setBusy(false);
+    setData(r.success ? r : { ankuendigungen: [], termine: [], links: [], teams: [] });
+  };
+  useEffect(() => { load(); }, []);
+
+  return html`
+    <h2 class="page">👁️ Schüler-Vorschau</h2>
+    <div class="card form" style="margin-bottom:14px">
+      <div class="row2">
+        <div>
+          <label>Ansicht für</label>
+          <select data-testid="vor-typ" value=${typ} onChange=${(e) => { setTyp(e.target.value); }}>
+            <option value="klasse">Eine Klasse</option>
+            <option value="stufe">Eine Stufe</option>
+            <option value="global">Alle (nur Schulweites)</option>
+          </select>
+        </div>
+        ${typ === 'klasse' && html`<div><label>Klasse</label>
+          <select data-testid="vor-klasse" value=${wert} onChange=${(e) => setWert(e.target.value)}>
+            ${KLASSEN.map(k => html`<option value=${k} key=${k}>${k}</option>`)}</select></div>`}
+        ${typ === 'stufe' && html`<div><label>Stufe</label>
+          <select value=${wert} onChange=${(e) => setWert(e.target.value)}>
+            ${STUFEN.map(k => html`<option value=${k} key=${k}>${k}</option>`)}</select></div>`}
+      </div>
+      <button class="primary-btn" data-testid="vor-laden" onClick=${load} disabled=${busy}>${busy ? 'Lade …' : 'Vorschau anzeigen'}</button>
+    </div>
+
+    ${data === null ? html`<${Spinner}/>` : html`
+      <div class="preview-frame" data-testid="vorschau">
+        <div class="plabel">So sieht es ein Kind (${typ === 'global' ? 'schulweit' : (typ === 'stufe' ? 'Stufe ' + wert : 'Klasse ' + wert)})</div>
+
+        <div style="font-size:13px;font-weight:800;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px;margin:4px 0 8px">📢 Ankündigungen</div>
+        ${data.ankuendigungen.length === 0 ? html`<div class="empty" style="padding:14px">Keine aktiven Ankündigungen.</div>`
+          : data.ankuendigungen.map(a => html`<div class="ank" key=${a.id}><div class="titel">${a.titel}</div><div class="von">${a.von_name} · ${fmtZeit(a.created_at)}</div><${StudentContent} inhalt=${a.inhalt} /></div>`)}
+
+        <div style="font-size:13px;font-weight:800;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 8px">📅 Demnächst</div>
+        ${data.termine.length === 0 ? html`<div class="empty" style="padding:14px">Keine Termine.</div>`
+          : data.termine.map(t => { const d = fmtDatum(t.datum); return html`
+            <div class="card termin" key=${t.id} style="box-shadow:none;border:1px solid var(--border)">
+              <div class="datum"><b>${d.tag}</b><span>${d.monat}</span></div>
+              <div><b>${t.titel}</b><span class="typ-tag typ-${t.typ}">${TYP_LABEL[t.typ] || t.typ}</span>${t.beschreibung ? html`<p style="font-size:13px;color:var(--text-dim);margin-top:2px">${t.beschreibung}</p>` : ''}</div>
+            </div>`; })}
+
+        <div style="font-size:13px;font-weight:800;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 8px">👥 Teams</div>
+        ${data.teams.length === 0 ? html`<div class="empty" style="padding:14px">Keine Teams.</div>`
+          : html`<div>${data.teams.map(t => html`<span class="pill mine" key=${t.id} style="margin:0 6px 6px 0;display:inline-block">${t.name}</span>`)}</div>`}
+      </div>`}`;
+}
+
+// ============================ PROTOKOLL ============================
+function ProtokollView() {
+  const [data, setData] = useState(null);
+  useEffect(() => { (async () => { const r = await D.audit(); setData(r.success ? r.eintraege : []); })(); }, []);
+  const LABEL = { postfach_ansehen: 'Postfach angesehen', antwort: 'Nachricht beantwortet', ankuendigung_neu: 'Ankündigung erstellt', ankuendigung_loeschen: 'Ankündigung zurückgezogen', team_post: 'In Team gepostet', vorschau: 'Schüler-Vorschau', };
+  return html`
+    <h2 class="page">🧾 Protokoll (Rechenschaft)</h2>
+    <div class="card">
+      ${data === null ? html`<${Spinner}/>` : data.length === 0
+        ? html`<div class="empty">Noch keine Einträge.</div>`
+        : data.map((z, i) => html`
+          <div class="audit-row" key=${i} data-testid="audit-row">
+            <span>${fmtZeit(z.created_at)}</span>
+            <b>${z.actor}</b>
+            <span>${LABEL[z.aktion] || z.aktion}</span>
+            ${z.ziel ? html`<span>· ${z.ziel}</span>` : ''}
+          </div>`)}
+    </div>`;
+}
+
+// ============================ APP ============================
+function App() {
+  const [angemeldet, setAngemeldet] = useState(false);
+  const [checked, setChecked] = useState(false);
+  const [tab, setTab] = useState('postfach');
+  const [toastState, setToastState] = useState(null);
+
+  const toast = (text, typ) => { setToastState({ text, typ }); setTimeout(() => setToastState(null), 3200); };
+
+  useEffect(() => { (async () => { const u = await D.currentUser(); setAngemeldet(!!u); setChecked(true); })(); }, []);
+
+  const logout = async () => { await D.logout(); setAngemeldet(false); };
+
+  const badge = html`<div class="mode-badge ${D.isDemo ? 'demo' : 'produktiv'}" data-testid="mode-badge">${D.isDemo ? 'Demo' : 'Produktiv'}</div>`;
+
+  if (!checked) return html`${badge}<${Spinner}/>`;
+  if (!angemeldet) return html`${badge}<${LoginView} onDone=${() => setAngemeldet(true)} toast=${toast} /><${Toast} toast=${toastState} />`;
+
+  const TABS = [
+    ['postfach', '✉️ Postfach'],
+    ['ankuendigungen', '📢 Ankündigungen'],
+    ['vorschau', '👁️ Schüler-Vorschau'],
+    ['protokoll', '🧾 Protokoll']
+  ];
+  return html`
+    ${badge}
+    <header class="hdr">
+      <div class="t"><b>${(T.schule && T.schule.name_kurz) || 'KRS'} Schüler-Hub · Lehrer-Panel</b><span>${(T.schule && T.schule.name_lang) || ''}</span></div>
+      <div class="user"><button class="logout-btn" data-testid="logout" onClick=${logout}>Abmelden</button></div>
+    </header>
+    <main class="wrap">
+      <div class="tabs" role="tablist">
+        ${TABS.map(([id, label]) => html`
+          <button class="tab ${tab === id ? 'on' : ''}" key=${id} data-testid="tab-${id}" onClick=${() => setTab(id)}>${label}</button>`)}
+      </div>
+      ${tab === 'postfach' && html`<${PostfachView} toast=${toast} />`}
+      ${tab === 'ankuendigungen' && html`<${AnkuendigungenView} toast=${toast} />`}
+      ${tab === 'vorschau' && html`<${VorschauView} toast=${toast} />`}
+      ${tab === 'protokoll' && html`<${ProtokollView} />`}
+      <footer style="margin-top:36px;text-align:center;font-size:12px;color:var(--text-dim)">
+        Lehrer-Panel · greift ausschließlich auf die Schüler-Datenbank zu · Kollegiums-Chat läuft weiterhin in
+        <a href="https://kurpfalz-realschule.github.io/krs-connect/" target="_blank" rel="noopener noreferrer">Connect</a>.
+      </footer>
+    </main>
+    <${Toast} toast=${toastState} />`;
+}
+
+render(h(App), document.getElementById('app'));
+</script>
+</body>
+</html>
